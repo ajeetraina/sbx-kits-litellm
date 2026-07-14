@@ -1,0 +1,97 @@
+schemaVersion: "1"
+kind: mixin
+name: litellm
+displayName: LiteLLM Gateway (in-sandbox)
+description: "Runs a LiteLLM proxy inside the sandbox on localhost:4000, giving the agent one OpenAI-compatible endpoint with routing, fallbacks, and spend tracking across OpenAI, Anthropic, Gemini, and local Docker Model Runner. Upstream cloud credentials are injected by the sbx credential proxy at egress, so no real API keys ever exist inside the sandbox."
+
+network:
+  allowedDomains:
+    - pypi.org
+    - files.pythonhosted.org
+    - api.openai.com
+    - api.anthropic.com
+    - generativelanguage.googleapis.com
+    - localhost:4000
+    - localhost:12434
+
+environment:
+  variables:
+    # Point OpenAI-compatible tooling inside the sandbox at LiteLLM
+    OPENAI_BASE_URL: "http://localhost:4000/v1"
+    OPENAI_API_KEY: "sk-sandbox-litellm"
+    # Local-only virtual key for the in-sandbox gateway (not a secret)
+    LITELLM_MASTER_KEY: "sk-sandbox-litellm"
+    NO_PROXY: "localhost,127.0.0.1,host.docker.internal"
+    no_proxy: "localhost,127.0.0.1,host.docker.internal"
+
+commands:
+  install:
+    # TODO: pin exact version after empirical validation (tested-commands rule)
+    - command: "pip install --break-system-packages 'litellm[proxy]'"
+      user: "1000"
+      description: "Install LiteLLM with proxy extras (uvicorn, fastapi)"
+
+initFiles:
+  - path: /home/agent/.litellm/config.yaml
+    mode: "0644"
+    onlyIfMissing: true
+    description: "LiteLLM proxy config. Cloud api_key values are placeholders; the sbx credential proxy injects real credentials at egress for known provider hostnames."
+    content: |
+      model_list:
+        - model_name: gpt-4o
+          litellm_params:
+            model: openai/gpt-4o
+            api_key: "proxy-managed"
+        - model_name: claude
+          litellm_params:
+            model: anthropic/claude-sonnet-4-6
+            api_key: "proxy-managed"
+        - model_name: gemini
+          litellm_params:
+            model: gemini/gemini-2.5-flash
+            api_key: "proxy-managed"
+        # Local Docker Model Runner variant, zero cloud dependency
+        - model_name: local-gemma
+          litellm_params:
+            model: openai/ai/gemma3
+            api_base: "http://host.docker.internal:12434/engines/v1"
+            api_key: "dmr"
+
+      litellm_settings:
+        drop_params: true
+        num_retries: 2
+
+      router_settings:
+        # Fall back to local model if cloud is unreachable/policy-blocked
+        fallbacks:
+          - gpt-4o: ["local-gemma"]
+
+      general_settings:
+        master_key: os.environ/LITELLM_MASTER_KEY
+
+  - path: /home/agent/.litellm/start.sh
+    mode: "0755"
+    onlyIfMissing: true
+    description: "Launcher for the in-sandbox LiteLLM proxy"
+    content: |
+      #!/bin/bash
+      mkdir -p ~/.litellm
+      nohup litellm \
+        --config ~/.litellm/config.yaml \
+        --host 127.0.0.1 \
+        --port 4000 \
+        --telemetry False \
+        > ~/.litellm/litellm.log 2>&1 &
+      echo "LiteLLM starting on http://localhost:4000 (log: ~/.litellm/litellm.log)"
+
+memory: |
+  ## LiteLLM gateway
+
+  A LiteLLM proxy is available inside this sandbox. Start it (if not
+  already running) with `~/.litellm/start.sh`. It exposes an
+  OpenAI-compatible endpoint at `http://localhost:4000/v1` with these
+  model names: `gpt-4o`, `claude`, `gemini`, `local-gemma`.
+  Authenticate with the key in `$LITELLM_MASTER_KEY`. Cloud provider
+  credentials are injected by the sandbox credential proxy at egress;
+  never ask for or handle real API keys. Config lives at
+  `~/.litellm/config.yaml` and routing/fallbacks can be edited there.
