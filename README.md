@@ -119,6 +119,37 @@ bindings:
 
 Import the secrets first (`sbx secret set -g openai`, etc.), then relaunch the sandbox. This is host credential config, independent of the kit.
 
+> Note: a stored **OAuth**-configured `anthropic` credential (e.g. a Claude Code login token) does **not** authenticate direct `api.anthropic.com` API calls and will return `401`. For the `claude` model, store a real Anthropic **API key** (`sbx secret set -g anthropic`).
+
+### A cloud model returns a connection error or falls back to `local-gemma`
+
+If `gpt-4o` errors with something like `httpx.ConnectError: Cannot connect to host localhost:4000` (or silently returns a `local-gemma`/`model.gguf` response via the fallback), the culprit is `OPENAI_BASE_URL`. This kit sets `OPENAI_BASE_URL=http://localhost:4000/v1` so in-sandbox tooling talks to the gateway — but **LiteLLM's own OpenAI client inherits that env var too**, so an `openai/*` model with no explicit `api_base` loops its upstream call back to the gateway itself.
+
+Every cloud model on the `openai/` provider must pin its real upstream in `config.yaml`:
+
+```yaml
+- model_name: gpt-4o
+  litellm_params:
+    model: openai/gpt-4o
+    api_base: "https://api.openai.com/v1"   # required, or it loops back to localhost:4000
+    api_key: "proxy-managed"
+```
+
+(Models with their own `api_base` — like the `local-gemma` DMR entry — are unaffected. `anthropic/*` and `gemini/*` models use provider-specific base URLs and don't read `OPENAI_BASE_URL`.)
+
+### A cloud call fails with `No connected db` / `ModuleNotFoundError: No module named 'prisma'`
+
+There is no database in the sandbox, and `litellm[proxy]` doesn't bundle `prisma`, so LiteLLM's DB-backed spend/error logging crashes when it tries to persist a cost-mapped call (which is why `local-gemma` — cost 0 — is unaffected). The kit disables it in `general_settings`:
+
+```yaml
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+  disable_spend_logs: true
+  disable_error_logs: true
+```
+
+If you re-enable spend tracking, you must also provision a database and install the `prisma` client.
+
 ### `sbx create` fails with `500 ... failed to run sandbox container`
 
 Usually an install-command failure aborting provisioning. This kit installs LiteLLM under a pinned **Python 3.12** virtualenv via `uv` on purpose: the base image ships Python 3.14, for which some LiteLLM deps (e.g. `orjson`, `uvloop`) have no prebuilt wheels and would try to build from source (needing Rust/C toolchains and extra egress that the sandbox network policy blocks). If you change the install commands, keep them on a wheel-friendly Python. Inspect the daemon log at `~/Library/Application Support/com.docker.sandboxes/sandboxes/sandboxd/daemon.log` to see the underlying error.
