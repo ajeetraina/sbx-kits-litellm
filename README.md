@@ -42,6 +42,13 @@ Or over git:
 sbx run --kit "git+https://github.com/ajeetraina/sbx-kits-litellm.git" claude
 ```
 
+Or from the published kit on Docker Hub (note the explicit `:latest` tag — an
+untagged OCI reference is rejected as an invalid reference):
+
+```
+sbx run --kit docker.io/ajeetraina777/sbx-kits-litellm:latest claude
+```
+
 ## Smoke test
 
 There are two levels to check this kit.
