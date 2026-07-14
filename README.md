@@ -90,6 +90,8 @@ Start the gateway and check the model list:
 !curl -s http://localhost:4000/v1/models -H "Authorization: Bearer $LITELLM_MASTER_KEY" | head
 ```
 
+For a liveness check use `GET /health/liveliness` (returns `I'm alive!`) or `/v1/models` — **not** plain `GET /health`, which returns a benign 500 in-sandbox (see Troubleshooting).
+
 Route a completion through the local model (no cloud keys needed):
 
 ```
@@ -156,6 +158,10 @@ general_settings:
 ```
 
 If you re-enable spend tracking, you must also provision a database and install the `prisma` client.
+
+### `GET /health` returns `500 Internal server error`
+
+Expected in-sandbox — **not** a sign the gateway is down. Plain `/health` runs LiteLLM's DB-backed active health checks, which fail because there is no database (same root cause as above). Use `GET /health/liveliness` (returns `I'm alive!`), `GET /health/readiness`, or `GET /v1/models` to confirm the proxy is serving.
 
 ### `sbx create` fails with `500 ... failed to run sandbox container`
 

@@ -113,3 +113,8 @@ agentContext: |
   credentials are injected by the sandbox credential proxy at egress;
   never ask for or handle real API keys. Config lives at
   `~/.litellm/config.yaml` and routing/fallbacks can be edited there.
+
+  To check the gateway is up, use `GET /health/liveliness` (returns
+  `I'm alive!`) or `GET /v1/models`. Do NOT use `GET /health` — it runs
+  DB-backed active checks and returns a benign 500 here (there is no
+  database in the sandbox); that does not mean the proxy is unhealthy.
