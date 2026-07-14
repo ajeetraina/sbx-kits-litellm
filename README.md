@@ -62,13 +62,3 @@ Route a completion through the local model (no cloud keys needed):
 
 Then the same request with `"model": "gpt-4o"` to confirm credential injection on the cloud path.
 
-## Open items to validate before publishing (tested-commands rule)
-
-1. **Start hook**: this kit ships a `start.sh` launcher because it is unconfirmed whether the kit spec supports a boot/service hook in addition to `commands.install`. Check `spec/` in docker/sbx-kits-contrib and run the TCK; if a start hook exists, move the launcher there.
-2. **Header overwrite semantics**: confirm the credential proxy replaces the placeholder `api_key: "proxy-managed"` auth headers rather than only injecting when absent. If it only injects when the header is missing, test with empty api_key values.
-3. **TLS trust for httpx**: LiteLLM uses httpx, which reads the certifi bundle rather than the system trust store. Confirm the sandbox exports `SSL_CERT_FILE`/`REQUESTS_CA_BUNDLE` pointing at the proxy CA; if not, set them in `environment.variables`.
-4. **Version pin**: pin `litellm[proxy]` to the exact version validated in the sandbox.
-
-## License
-
-Apache-2.0
