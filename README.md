@@ -62,6 +62,18 @@ Expect `VALID` with no warnings — this kit targets kit-spec v2 (`schemaVersion
 
 > **Note:** `sbx kit validate` also ships in the Labspace *governance simulator*, which lints the spec but cannot launch a sandbox. Its demo network policy denies `pypi.org` and `host.docker.internal:12434`, so those denials are governance policy, not kit defects — run the functional test against the real runtime.
 
+## Publish the kit
+
+Push the validated kit to a registry as a tag with the helper script:
+
+```
+./scripts/push-kit.sh                        # docker.io/<namespace>/sbx-kits-litellm:latest
+TAG=v1 ./scripts/push-kit.sh                 # :v1
+DOCKERHUB_NAMESPACE=me ./scripts/push-kit.sh # override the namespace
+```
+
+It stages `spec.yaml` + `README.md` (+ `LICENSE` if present), runs `sbx kit validate`, then `sbx kit push`. Requires registry auth (`docker login`).
+
 ## Verify inside the sandbox
 
 Start the gateway and check the model list:
