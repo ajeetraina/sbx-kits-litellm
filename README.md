@@ -52,7 +52,7 @@ There are two levels to check this kit.
 sbx kit validate ./
 ```
 
-Expect `VALID`. A `network.allowedDomains` deprecation warning is benign — it's kit-spec v1 syntax that upstream community kits still use.
+Expect `VALID` with no warnings — this kit targets kit-spec v2 (`schemaVersion: "2"`, network under `caps.network.allow`).
 
 **2. Functional test (needs the real Docker Sandboxes runtime and a running Docker daemon):**
 

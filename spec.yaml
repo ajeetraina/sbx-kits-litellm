@@ -1,20 +1,21 @@
-schemaVersion: "1"
+schemaVersion: "2"
 kind: mixin
 name: litellm
 displayName: LiteLLM Gateway (in-sandbox)
 description: "Runs a LiteLLM proxy inside the sandbox on localhost:4000, giving the agent one OpenAI-compatible endpoint with routing, fallbacks, and spend tracking across OpenAI, Anthropic, Gemini, and local Docker Model Runner. Upstream cloud credentials are injected by the sbx credential proxy at egress, so no real API keys ever exist inside the sandbox."
 
-network:
-  allowedDomains:
-    - pypi.org
-    - files.pythonhosted.org
-    - api.openai.com
-    - api.anthropic.com
-    - generativelanguage.googleapis.com
-    # Docker Model Runner (local fallback). The config talks to
-    # host.docker.internal:12434; localhost inside the microVM is the
-    # sandbox itself, so the in-sandbox gateway on :4000 needs no entry.
-    - host.docker.internal:12434
+caps:
+  network:
+    allow:
+      - pypi.org
+      - files.pythonhosted.org
+      - api.openai.com
+      - api.anthropic.com
+      - generativelanguage.googleapis.com
+      # Docker Model Runner (local fallback). The config talks to
+      # host.docker.internal:12434; localhost inside the microVM is the
+      # sandbox itself, so the in-sandbox gateway on :4000 needs no entry.
+      - host.docker.internal:12434
 
 environment:
   variables:
