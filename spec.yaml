@@ -11,8 +11,10 @@ network:
     - api.openai.com
     - api.anthropic.com
     - generativelanguage.googleapis.com
-    - localhost:4000
-    - localhost:12434
+    # Docker Model Runner (local fallback). The config talks to
+    # host.docker.internal:12434; localhost inside the microVM is the
+    # sandbox itself, so the in-sandbox gateway on :4000 needs no entry.
+    - host.docker.internal:12434
 
 environment:
   variables:
@@ -30,61 +32,60 @@ commands:
     - command: "pip install --break-system-packages 'litellm[proxy]'"
       user: "1000"
       description: "Install LiteLLM with proxy extras (uvicorn, fastapi)"
+  initFiles:
+    - path: /home/agent/.litellm/config.yaml
+      mode: "0644"
+      onlyIfMissing: true
+      description: "LiteLLM proxy config. Cloud api_key values are placeholders; the sbx credential proxy injects real credentials at egress for known provider hostnames."
+      content: |
+        model_list:
+          - model_name: gpt-4o
+            litellm_params:
+              model: openai/gpt-4o
+              api_key: "proxy-managed"
+          - model_name: claude
+            litellm_params:
+              model: anthropic/claude-sonnet-4-6
+              api_key: "proxy-managed"
+          - model_name: gemini
+            litellm_params:
+              model: gemini/gemini-2.5-flash
+              api_key: "proxy-managed"
+          # Local Docker Model Runner variant, zero cloud dependency
+          - model_name: local-gemma
+            litellm_params:
+              model: openai/ai/gemma3
+              api_base: "http://host.docker.internal:12434/engines/v1"
+              api_key: "dmr"
 
-initFiles:
-  - path: /home/agent/.litellm/config.yaml
-    mode: "0644"
-    onlyIfMissing: true
-    description: "LiteLLM proxy config. Cloud api_key values are placeholders; the sbx credential proxy injects real credentials at egress for known provider hostnames."
-    content: |
-      model_list:
-        - model_name: gpt-4o
-          litellm_params:
-            model: openai/gpt-4o
-            api_key: "proxy-managed"
-        - model_name: claude
-          litellm_params:
-            model: anthropic/claude-sonnet-4-6
-            api_key: "proxy-managed"
-        - model_name: gemini
-          litellm_params:
-            model: gemini/gemini-2.5-flash
-            api_key: "proxy-managed"
-        # Local Docker Model Runner variant, zero cloud dependency
-        - model_name: local-gemma
-          litellm_params:
-            model: openai/ai/gemma3
-            api_base: "http://host.docker.internal:12434/engines/v1"
-            api_key: "dmr"
+        litellm_settings:
+          drop_params: true
+          num_retries: 2
 
-      litellm_settings:
-        drop_params: true
-        num_retries: 2
+        router_settings:
+          # Fall back to local model if cloud is unreachable/policy-blocked
+          fallbacks:
+            - gpt-4o: ["local-gemma"]
 
-      router_settings:
-        # Fall back to local model if cloud is unreachable/policy-blocked
-        fallbacks:
-          - gpt-4o: ["local-gemma"]
+        general_settings:
+          master_key: os.environ/LITELLM_MASTER_KEY
 
-      general_settings:
-        master_key: os.environ/LITELLM_MASTER_KEY
+    - path: /home/agent/.litellm/start.sh
+      mode: "0755"
+      onlyIfMissing: true
+      description: "Launcher for the in-sandbox LiteLLM proxy"
+      content: |
+        #!/bin/bash
+        mkdir -p ~/.litellm
+        nohup litellm \
+          --config ~/.litellm/config.yaml \
+          --host 127.0.0.1 \
+          --port 4000 \
+          --telemetry False \
+          > ~/.litellm/litellm.log 2>&1 &
+        echo "LiteLLM starting on http://localhost:4000 (log: ~/.litellm/litellm.log)"
 
-  - path: /home/agent/.litellm/start.sh
-    mode: "0755"
-    onlyIfMissing: true
-    description: "Launcher for the in-sandbox LiteLLM proxy"
-    content: |
-      #!/bin/bash
-      mkdir -p ~/.litellm
-      nohup litellm \
-        --config ~/.litellm/config.yaml \
-        --host 127.0.0.1 \
-        --port 4000 \
-        --telemetry False \
-        > ~/.litellm/litellm.log 2>&1 &
-      echo "LiteLLM starting on http://localhost:4000 (log: ~/.litellm/litellm.log)"
-
-memory: |
+agentContext: |
   ## LiteLLM gateway
 
   A LiteLLM proxy is available inside this sandbox. Start it (if not
