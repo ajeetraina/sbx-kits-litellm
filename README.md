@@ -94,3 +94,32 @@ Route a completion through the local model (no cloud keys needed):
 
 Then the same request with `"model": "gpt-4o"` to confirm credential injection on the cloud path.
 
+## Troubleshooting
+
+### A cloud model returns an auth error (`local-gemma` works, `gpt-4o`/`claude` don't)
+
+The gateway declares provider hostnames in `caps.network.allow`, but the sbx credential proxy only **injects** a stored secret on a request if that secret is **bound to the domain** in your host-side `~/.config/sbx/credentials.yaml`. If you see a warning like `credential for "openai" discovered but no domains allowed by your bindings; not injecting` at sandbox start, add the binding:
+
+```yaml
+bindings:
+  openai:
+    apiKey:
+      domains:
+        - api.openai.com
+  anthropic:
+    apiKey:
+      domains:
+        - api.anthropic.com
+  # gemini (Google AI): bind whatever secret name you stored
+  # google:
+  #   apiKey:
+  #     domains:
+  #       - generativelanguage.googleapis.com
+```
+
+Import the secrets first (`sbx secret set -g openai`, etc.), then relaunch the sandbox. This is host credential config, independent of the kit.
+
+### `sbx create` fails with `500 ... failed to run sandbox container`
+
+Usually an install-command failure aborting provisioning. This kit installs LiteLLM under a pinned **Python 3.12** virtualenv via `uv` on purpose: the base image ships Python 3.14, for which some LiteLLM deps (e.g. `orjson`, `uvloop`) have no prebuilt wheels and would try to build from source (needing Rust/C toolchains and extra egress that the sandbox network policy blocks). If you change the install commands, keep them on a wheel-friendly Python. Inspect the daemon log at `~/Library/Application Support/com.docker.sandboxes/sandboxes/sandboxd/daemon.log` to see the underlying error.
+
