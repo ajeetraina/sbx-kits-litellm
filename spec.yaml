@@ -29,10 +29,17 @@ environment:
 
 commands:
   install:
-    # TODO: pin exact version after empirical validation (tested-commands rule)
-    - command: "pip install --break-system-packages 'litellm[proxy]'"
+    # The base image ships Python 3.14, for which several LiteLLM proxy
+    # deps (orjson, uvloop, ...) have no prebuilt wheels yet and would try
+    # to build from source (needs Rust/C toolchains + extra egress, which
+    # fails behind the sandbox network policy). Install under a pinned
+    # Python 3.12 via uv so every dependency resolves to a prebuilt wheel.
+    - command: "uv venv --python 3.12 /home/agent/.litellm/venv"
       user: "1000"
-      description: "Install LiteLLM with proxy extras (uvicorn, fastapi)"
+      description: "Create a Python 3.12 venv for LiteLLM (base image Python 3.14 lacks wheels for some deps)"
+    - command: "uv pip install --python /home/agent/.litellm/venv 'litellm[proxy]'"
+      user: "1000"
+      description: "Install LiteLLM with proxy extras into the venv using prebuilt wheels"
   initFiles:
     - path: /home/agent/.litellm/config.yaml
       mode: "0644"
@@ -78,7 +85,7 @@ commands:
       content: |
         #!/bin/bash
         mkdir -p ~/.litellm
-        nohup litellm \
+        nohup ~/.litellm/venv/bin/litellm \
           --config ~/.litellm/config.yaml \
           --host 127.0.0.1 \
           --port 4000 \
