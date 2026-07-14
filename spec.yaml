@@ -50,6 +50,10 @@ commands:
           - model_name: gpt-4o
             litellm_params:
               model: openai/gpt-4o
+              # Explicit api_base is REQUIRED: the kit sets OPENAI_BASE_URL to
+              # this gateway for in-sandbox tooling, and LiteLLM's own OpenAI
+              # client would otherwise inherit it and loop back to localhost:4000.
+              api_base: "https://api.openai.com/v1"
               api_key: "proxy-managed"
           - model_name: claude
             litellm_params:
@@ -77,6 +81,11 @@ commands:
 
         general_settings:
           master_key: os.environ/LITELLM_MASTER_KEY
+          # No database runs in the sandbox; disable DB-backed logging so
+          # LiteLLM does not crash trying to persist spend/error logs
+          # (litellm[proxy] has no prisma installed here).
+          disable_spend_logs: true
+          disable_error_logs: true
 
     - path: /home/agent/.litellm/start.sh
       mode: "0755"
