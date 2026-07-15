@@ -49,26 +49,6 @@ untagged OCI reference is rejected as an invalid reference):
 sbx run --kit docker.io/ajeetraina777/sbx-kits-litellm:latest claude
 ```
 
-## Smoke test
-
-There are two levels to check this kit.
-
-**1. Validate the spec (no runtime, no Docker daemon):**
-
-```
-sbx kit validate ./
-```
-
-Expect `VALID` with no warnings — this kit targets kit-spec v2 (`schemaVersion: "2"`, network under `caps.network.allow`).
-
-**2. Functional test (needs the real Docker Sandboxes runtime and a running Docker daemon):**
-
-1. Complete the [Prerequisites](#prerequisites): import provider secrets and, for the local fallback, `docker model pull ai/gemma3`.
-2. Launch the sandbox (see [Launch](#launch)).
-3. Run the checks in [Verify inside the sandbox](#verify-inside-the-sandbox) below.
-
-> **Note:** `sbx kit validate` also ships in the Labspace *governance simulator*, which lints the spec but cannot launch a sandbox. Its demo network policy denies `pypi.org` and `host.docker.internal:12434`, so those denials are governance policy, not kit defects — run the functional test against the real runtime.
-
 ## Publish the kit
 
 Push the validated kit to a registry as a tag with the helper script:
