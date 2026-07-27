@@ -3,7 +3,9 @@
 A standalone [Docker Sandboxes](https://docs.docker.com/ai/sandboxes/) kit (`kind: mixin`) that runs a [LiteLLM](https://github.com/BerriAI/litellm) proxy **inside the sandbox** on `localhost:4000`, giving any agent a single OpenAI-compatible endpoint with:
 
 -> Multi-provider routing (OpenAI, Anthropic, Gemini) with fallbacks to a local Docker Model Runner model
+
 -> Zero real API keys inside the microVM: LiteLLM's upstream calls go to known provider hostnames, so the sbx credential proxy injects credentials at egress
+
 -> Spend tracking and retries via LiteLLM's router, without weakening the sandbox security model
 
 ## Why in-sandbox and not an external gateway?
