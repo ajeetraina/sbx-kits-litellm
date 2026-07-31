@@ -6,11 +6,17 @@ A standalone [Docker Sandboxes](https://docs.docker.com/ai/sandboxes/) kit (`kin
 -> Zero real API keys inside the microVM: LiteLLM's upstream calls go to known provider hostnames, so the sbx credential proxy injects credentials at egress
 -> Spend tracking and retries via LiteLLM's router, without weakening the sandbox security model
 
-## Why in-sandbox and not an external gateway?
+## Why in-sandbox and not a host-side router?
 
-The sbx credential proxy only injects secrets for known provider hostnames. An **external** LiteLLM gateway at a custom hostname would require `--bypass-host` plus plaintext env vars, losing MITM visibility and credential injection. That gap is tracked in [docker/roadmap#904](https://github.com/docker/roadmap/issues/904).
+A common suggestion is to run LiteLLM on the **host** and let the sandbox reach it over `host.docker.internal`. That's a reasonable design, so it's worth being precise about the actual trade-off.
 
-Running LiteLLM **inside** the sandbox sidesteps the problem entirely: the agent talks to `localhost:4000`, and LiteLLM's outbound traffic to `api.openai.com`, `api.anthropic.com`, and `generativelanguage.googleapis.com` flows through the credential proxy like any other request. Once #904 lands, this kit can grow an `:external` variant.
+**Key safety is a tie.** A host-side router would pull provider keys from a secret store and hand the agent only a local virtual key, so the real OpenAI/Anthropic key stays out of the sandbox — exactly as it does here. This isn't the differentiator.
+
+**The difference is the egress path.** Running LiteLLM **inside** the sandbox means its outbound calls to `api.openai.com`, `api.anthropic.com`, and `generativelanguage.googleapis.com` flow through the sbx credential proxy like any other request — the same audited, allowlisted egress door as the rest of the agent's traffic, with the real key injected at egress so it never lives inside the microVM. A host-side router reached over `host.docker.internal` adds a **second exit that the sbx proxy doesn't see into**. Keeping model egress on the single mediated path is the reason this kit runs the router in-sandbox.
+
+The proxy is no longer limited to a fixed set of provider hostnames: `sbx secret set-custom --host <hostname> --env <VAR>` (experimental, sbx v0.37+) injects a stored secret at egress for **any** host, so an in-sandbox router can reach custom or self-hosted OpenAI-compatible endpoints with the same at-egress injection — no bypass required. (This supersedes the older gap tracked in [docker/roadmap#904](https://github.com/docker/roadmap/issues/904).)
+
+Honest caveat: a host-side router with a real database does **spend tracking** better than this kit can in-sandbox (see the `disable_spend_logs` note under [Troubleshooting](#a-cloud-call-fails-with-no-connected-db--modulenotfounderror-no-module-named-prisma)). If centralized spend accounting matters more to you than keeping all egress on one audited path, a host-side router is a defensible alternative.
 
 ## Prerequisites
 
