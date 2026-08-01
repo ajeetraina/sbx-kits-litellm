@@ -15,22 +15,26 @@ model_list:
     litellm_params:
       model: gemini/gemini-2.5-flash
       api_key: os.environ/GEMINI_API_KEY
-  # Local Docker Model Runner variant, zero cloud dependency. The router
-  # runs on the host, so it reaches DMR over host.docker.internal:12434.
-  - model_name: local-gemma
-    litellm_params:
-      model: openai/ai/gemma3
-      api_base: "http://host.docker.internal:12434/engines/v1"
-      api_key: "dmr"
+  # OPTIONAL: local Docker Model Runner fallback (zero cloud dependency).
+  # Enable only if you actually run DMR (`docker model pull ai/gemma3`).
+  # Uncomment this model AND the router_settings fallback below, and the
+  # extra_hosts entry in docker-compose.yml. The router runs on the host,
+  # so it reaches DMR over host.docker.internal:12434.
+  # - model_name: local-gemma
+  #   litellm_params:
+  #     model: openai/ai/gemma3
+  #     api_base: "http://host.docker.internal:12434/engines/v1"
+  #     api_key: "dmr"
 
 litellm_settings:
   drop_params: true
   num_retries: 2
 
-router_settings:
-  # Fall back to the local model if a cloud provider is unreachable
-  fallbacks:
-    - gpt-4o: ["local-gemma"]
+# OPTIONAL: uncomment to fall back to the local DMR model when a cloud
+# provider is unreachable (requires the local-gemma model above).
+# router_settings:
+#   fallbacks:
+#     - gpt-4o: ["local-gemma"]
 
 general_settings:
   master_key: os.environ/LITELLM_MASTER_KEY

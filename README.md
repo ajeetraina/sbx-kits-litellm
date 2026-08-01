@@ -2,7 +2,7 @@
 
 A standalone [Docker Sandboxes](https://docs.docker.com/ai/sandboxes/) kit (`kind: mixin`) that points a sandbox agent at a [LiteLLM](https://github.com/BerriAI/litellm) proxy running **on the host**, reachable at `host.docker.internal:4000`. The agent gets a single OpenAI-compatible endpoint with:
 
--> Multi-provider routing (OpenAI, Anthropic, Gemini) with fallback to a local Docker Model Runner model
+-> Multi-provider routing (OpenAI, Anthropic, Gemini), with an optional fallback to a local Docker Model Runner model
 
 -> A shared gateway: one router on the host serves every sandbox, instead of installing and running a copy inside each microVM
 
@@ -44,13 +44,15 @@ The shipped `litellm/config.yaml` is world-readable, so the nonroot stable DHI t
 
 > The sandbox never receives these provider keys; it only holds the virtual `LITELLM_MASTER_KEY`. `sbx secret` is not used here: it injects credentials at a sandbox's egress proxy and never exposes values to a host process, so it can't supply a host-run router. In this design the host owns the provider keys and the sandbox holds only the virtual key.
 
-### 2. (Optional) Enable Docker Model Runner for the local fallback
+### 2. (Optional) Enable the Docker Model Runner fallback
+
+DMR is off by default. Enable it only if you want a local fallback:
 
 ```
 docker model pull ai/gemma3
 ```
 
-The host router reaches DMR over `host.docker.internal:12434`.
+Then uncomment the `local-gemma` model and `router_settings` fallback in `litellm/config.yaml`, and the `extra_hosts` entry in `docker-compose.yml`, and restart (`docker compose up -d`). The host router reaches DMR over `host.docker.internal:12434`.
 
 ## Launch
 
@@ -96,16 +98,16 @@ The gateway runs on the host, so nothing needs starting inside the sandbox. Chec
 
 (`$OPENAI_BASE_URL` already points here, so OpenAI-compatible SDKs work with no extra config.) For a liveness check use `GET /health/liveliness` (returns `I'm alive!`) or `/v1/models`, **not** plain `GET /health`, which returns a benign 500 without a database (see Troubleshooting).
 
-Route a completion through the local model (no cloud keys needed):
+Route a completion through a cloud model:
 
 ```
 !curl -s http://host.docker.internal:4000/v1/chat/completions \
   -H "Authorization: Bearer $LITELLM_MASTER_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"model": "local-gemma", "messages": [{"role": "user", "content": "hello"}]}'
+  -d '{"model": "gpt-4o", "messages": [{"role": "user", "content": "hello"}]}'
 ```
 
-Then the same request with `"model": "gpt-4o"` to confirm the host router's cloud path.
+If you enabled the optional DMR fallback (see Prerequisites), swap `"model": "gpt-4o"` for `"local-gemma"` to route to the local model with no cloud keys.
 
 ## Why the router runs on the host
 

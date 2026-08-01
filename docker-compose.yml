@@ -22,11 +22,13 @@ services:
       # Virtual key the sandbox authenticates with (must match the kit's
       # LITELLM_MASTER_KEY / OPENAI_API_KEY). Not a provider secret.
       LITELLM_MASTER_KEY: "${LITELLM_MASTER_KEY:-sk-sandbox-litellm}"
-      # Real provider credentials — supplied from the host environment.
+      # Real provider credentials, supplied from the host environment.
       OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
       ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:-}"
       GEMINI_API_KEY: "${GEMINI_API_KEY:-}"
-    extra_hosts:
-      # Lets the router reach Docker Model Runner on the host
-      - "host.docker.internal:host-gateway"
+    # OPTIONAL: only needed for the local Docker Model Runner fallback.
+    # Uncomment together with the local-gemma model in litellm/config.yaml.
+    # extra_hosts:
+    #   # Lets the router reach Docker Model Runner on the host
+    #   - "host.docker.internal:host-gateway"
     restart: unless-stopped
