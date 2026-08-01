@@ -1,6 +1,6 @@
 # sbx kits for LiteLLM
 
-A standalone [Docker Sandboxes](https://docs.docker.com/ai/sandboxes/) kit (`kind: mixin`) that points a sandbox agent at a [LiteLLM](https://github.com/BerriAI/litellm) proxy running **on the host**, reachable at `host.docker.internal:4000` — the same pattern Docker Model Runner uses. The agent gets a single OpenAI-compatible endpoint with:
+A standalone [Docker Sandboxes](https://docs.docker.com/ai/sandboxes/) kit (`kind: mixin`) that points a sandbox agent at a [LiteLLM](https://github.com/BerriAI/litellm) proxy running **on the host**, reachable at `host.docker.internal:4000`. The agent gets a single OpenAI-compatible endpoint with:
 
 -> Multi-provider routing (OpenAI, Anthropic, Gemini) with fallback to a local Docker Model Runner model
 
