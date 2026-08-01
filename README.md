@@ -25,7 +25,7 @@ The kit itself only sets `OPENAI_BASE_URL` to the host router and allows `host.d
 
 ### 1. Start the LiteLLM router on the host
 
-The repo ships a host config (`litellm/config.yaml`) and a compose file. Provider keys live only on the host — put them in a gitignored `.env` file that Compose loads automatically (keeps them out of your shell history):
+The repo ships a host config (`litellm/config.yaml`) and a compose file. Provider keys live only on the host, so put them in a gitignored `.env` file that Compose loads automatically (keeps them out of your shell history):
 
 ```
 cp .env.example .env      # then edit .env, filling in the providers you use
@@ -34,15 +34,15 @@ docker compose up -d
 
 This publishes the router on `localhost:4000` (i.e. `host.docker.internal:4000` from a sandbox). Edit `litellm/config.yaml` to add models, change fallbacks, or tune settings.
 
-The image defaults to the public `ghcr.io/berriai/litellm` image. To run the [LiteLLM Docker Hardened Image](https://hub.docker.com/hardened-images/catalog/dhi/litellm) (DHI) instead — minimal, nonroot (UID 65532), CVE-scanned — mirror it into your org (requires a DHI Enterprise subscription) and set the reference in `.env`:
+The router runs the [LiteLLM Docker Hardened Image](https://hub.docker.com/hardened-images/catalog/dhi/litellm) (`dhi.io/litellm:1`) by default: minimal, nonroot (UID 65532), and CVE-scanned. Pin a tag or use a different image by setting `LITELLM_IMAGE` in `.env`:
 
 ```
-LITELLM_IMAGE=your-org/litellm:1        # or a pinned tag like 1.94.0-debian13
+LITELLM_IMAGE=dhi.io/litellm:1.94.0-debian13
 ```
 
 The shipped `litellm/config.yaml` is world-readable, so the nonroot stable DHI tag can read it; no other changes are needed.
 
-> The sandbox never receives these provider keys — it only holds the virtual `LITELLM_MASTER_KEY`. `sbx secret` is not used here: it injects credentials at a sandbox's egress proxy and never exposes values to a host process, so it can't supply a host-run router. In this design the host owns the provider keys and the sandbox holds only the virtual key.
+> The sandbox never receives these provider keys; it only holds the virtual `LITELLM_MASTER_KEY`. `sbx secret` is not used here: it injects credentials at a sandbox's egress proxy and never exposes values to a host process, so it can't supply a host-run router. In this design the host owns the provider keys and the sandbox holds only the virtual key.
 
 ### 2. (Optional) Enable Docker Model Runner for the local fallback
 
@@ -67,7 +67,7 @@ Or over git:
 sbx run --kit "git+https://github.com/ajeetraina/sbx-kits-litellm.git" claude
 ```
 
-Or from the published kit on Docker Hub (note the explicit `:latest` tag — an
+Or from the published kit on Docker Hub (note the explicit `:latest` tag, since an
 untagged OCI reference is rejected as an invalid reference):
 
 ```
@@ -94,7 +94,7 @@ The gateway runs on the host, so nothing needs starting inside the sandbox. Chec
 !curl -s http://host.docker.internal:4000/v1/models -H "Authorization: Bearer $LITELLM_MASTER_KEY" | head
 ```
 
-(`$OPENAI_BASE_URL` already points here, so OpenAI-compatible SDKs work with no extra config.) For a liveness check use `GET /health/liveliness` (returns `I'm alive!`) or `/v1/models` — **not** plain `GET /health`, which returns a benign 500 without a database (see Troubleshooting).
+(`$OPENAI_BASE_URL` already points here, so OpenAI-compatible SDKs work with no extra config.) For a liveness check use `GET /health/liveliness` (returns `I'm alive!`) or `/v1/models`, **not** plain `GET /health`, which returns a benign 500 without a database (see Troubleshooting).
 
 Route a completion through the local model (no cloud keys needed):
 
