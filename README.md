@@ -101,7 +101,7 @@ Then the same request with `"model": "gpt-4o"` to confirm the host router's clou
 
 ## Why the router runs on the host
 
-An earlier version installed and ran LiteLLM inside each sandbox and relied on the sbx credential proxy to inject provider keys at egress. Running a single router on the host is simpler and matches how Docker Model Runner is already consumed: one shared, host-managed gateway that every sandbox reaches over `host.docker.internal`, instead of a per-VM install. Real provider keys stay on the host; the sandbox only ever holds a virtual key.
+A single router on the host is simpler and matches how Docker Model Runner is already consumed: one shared, host-managed gateway that every sandbox reaches over `host.docker.internal`. Real provider keys stay on the host; the sandbox only ever holds a virtual key.
 
 ## Troubleshooting
 

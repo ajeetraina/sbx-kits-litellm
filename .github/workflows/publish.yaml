@@ -63,4 +63,4 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
           repository: ${{ secrets.DOCKERHUB_USERNAME }}/sbx-kits-litellm
           readme-filepath: ./README.md
-          short-description: "Docker Sandboxes mixin: in-sandbox LiteLLM gateway with multi-provider routing and fallbacks"
+          short-description: "Docker Sandboxes mixin: host-run LiteLLM gateway with multi-provider routing and fallbacks"
