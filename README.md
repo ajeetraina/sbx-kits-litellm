@@ -103,31 +103,3 @@ Then the same request with `"model": "gpt-4o"` to confirm the host router's clou
 
 A single router on the host is simpler and matches how Docker Model Runner is already consumed: one shared, host-managed gateway that every sandbox reaches over `host.docker.internal`. Real provider keys stay on the host; the sandbox only ever holds a virtual key.
 
-## Troubleshooting
-
-### The gateway is unreachable from the sandbox
-
-Confirm the router is up on the host (`docker compose ps`, `curl -s localhost:4000/health/liveliness`) and that the kit allows `host.docker.internal:4000` in `caps.network.allow`. From inside the sandbox, `curl http://host.docker.internal:4000/v1/models` should list the models.
-
-### A cloud model returns an auth error (`local-gemma` works, `gpt-4o`/`claude` don't)
-
-The host router reads provider keys from its environment (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`). Export them before `docker compose up -d`, or set them in the compose environment. `local-gemma` needs no key, so it working while cloud models 401 points at a missing/invalid provider key on the host.
-
-> Note: an **OAuth**-configured Anthropic credential (e.g. a Claude Code login token) does **not** authenticate direct `api.anthropic.com` API calls and will return `401`. For the `claude` model, use a real Anthropic **API key**.
-
-### A cloud call fails with `No connected db` / `ModuleNotFoundError: No module named 'prisma'`
-
-The compose file provisions no database, so LiteLLM's DB-backed spend/error logging is disabled in `litellm/config.yaml`:
-
-```yaml
-general_settings:
-  master_key: os.environ/LITELLM_MASTER_KEY
-  disable_spend_logs: true
-  disable_error_logs: true
-```
-
-If you re-enable spend tracking, provision a database and install the `prisma` client on the host router.
-
-### `GET /health` returns `500 Internal server error`
-
-Expected without a database — **not** a sign the gateway is down. Plain `/health` runs LiteLLM's DB-backed active health checks. Use `GET /health/liveliness` (returns `I'm alive!`), `GET /health/readiness`, or `GET /v1/models` to confirm the proxy is serving.
