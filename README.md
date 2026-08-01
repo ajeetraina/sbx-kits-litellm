@@ -19,7 +19,7 @@ A standalone [Docker Sandboxes](https://docs.docker.com/ai/sandboxes/) kit (`kin
                                                     OpenAI/Anthropic/Gemini
 ```
 
-The kit itself only sets `OPENAI_BASE_URL` to the host router and allows `host.docker.internal:4000` in the sandbox network policy. It does **not** install or start LiteLLM inside the sandbox — the router runs on the host, so provider credentials never enter the microVM.
+The kit itself only sets `OPENAI_BASE_URL` to the host router and allows `host.docker.internal:4000` in the sandbox network policy. It does **not** install or start LiteLLM inside the sandbox, the router runs on the host, so provider credentials never enter the microVM.
 
 ## Prerequisites
 
