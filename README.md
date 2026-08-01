@@ -2,11 +2,9 @@
 
 A standalone [Docker Sandboxes](https://docs.docker.com/ai/sandboxes/) kit (`kind: mixin`) that points a sandbox agent at a [LiteLLM](https://github.com/BerriAI/litellm) proxy running **on the host**, reachable at `host.docker.internal:4000`. The agent gets a single OpenAI-compatible endpoint with:
 
--> Multi-provider routing (OpenAI, Anthropic, Gemini), with an optional fallback to a local Docker Model Runner model
-
--> A shared gateway: one router on the host serves every sandbox, instead of installing and running a copy inside each microVM
-
--> No real API keys inside the microVM: the sandbox holds only a virtual key; real provider credentials live only on the host router
+- Multi-provider routing (OpenAI, Anthropic, Gemini), with an optional fallback to a local Docker Model Runner model
+- A shared gateway: one router on the host serves every sandbox, instead of installing and running a copy inside each microVM
+- No real API keys inside the microVM: the sandbox holds only a virtual key; real provider credentials live only on the host router
 
 ## How it works
 
