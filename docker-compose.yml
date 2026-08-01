@@ -1,13 +1,18 @@
 # Runs the LiteLLM router on the HOST. Sandboxes launched with this kit
 # reach it at host.docker.internal:4000 (see spec.yaml).
 #
-#   export OPENAI_API_KEY=...  ANTHROPIC_API_KEY=...  GEMINI_API_KEY=...
+#   cp .env.example .env   # then fill in provider keys
 #   docker compose up -d
 #
 # Then launch a sandbox:  sbx run --kit ./ claude
+#
+# LITELLM_IMAGE selects the image. Defaults to the public berriai image.
+# To use the Docker Hardened Image (DHI), mirror it into your org and set
+# LITELLM_IMAGE=<your-org>/litellm:1 in .env (the stable DHI tag runs as
+# nonroot UID 65532; the config below is world-readable so it can be read).
 services:
   litellm:
-    image: ghcr.io/berriai/litellm:main-stable
+    image: "${LITELLM_IMAGE:-ghcr.io/berriai/litellm:main-stable}"
     ports:
       - "4000:4000"
     command: ["--config", "/app/config.yaml", "--port", "4000", "--telemetry", "False"]
