@@ -6,13 +6,13 @@
 #
 # Then launch a sandbox:  sbx run --kit ./ claude
 #
-# LITELLM_IMAGE selects the image. Defaults to the public berriai image.
-# To use the Docker Hardened Image (DHI), mirror it into your org and set
-# LITELLM_IMAGE=<your-org>/litellm:1 in .env (the stable DHI tag runs as
-# nonroot UID 65532; the config below is world-readable so it can be read).
+# Uses the LiteLLM Docker Hardened Image (DHI) by default. The stable tag
+# runs as nonroot (UID 65532); the config below is world-readable so it can
+# be read. Override with LITELLM_IMAGE in .env to pin a tag or use another
+# image (e.g. LITELLM_IMAGE=dhi.io/litellm:1.94.0-debian13).
 services:
   litellm:
-    image: "${LITELLM_IMAGE:-ghcr.io/berriai/litellm:main-stable}"
+    image: "${LITELLM_IMAGE:-dhi.io/litellm:1}"
     ports:
       - "4000:4000"
     command: ["--config", "/app/config.yaml", "--port", "4000", "--telemetry", "False"]
@@ -22,11 +22,13 @@ services:
       # Virtual key the sandbox authenticates with (must match the kit's
       # LITELLM_MASTER_KEY / OPENAI_API_KEY). Not a provider secret.
       LITELLM_MASTER_KEY: "${LITELLM_MASTER_KEY:-sk-sandbox-litellm}"
-      # Real provider credentials — supplied from the host environment.
+      # Real provider credentials, supplied from the host environment.
       OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
       ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:-}"
       GEMINI_API_KEY: "${GEMINI_API_KEY:-}"
-    extra_hosts:
-      # Lets the router reach Docker Model Runner on the host
-      - "host.docker.internal:host-gateway"
+    # OPTIONAL: only needed for the local Docker Model Runner fallback.
+    # Uncomment together with the local-gemma model in litellm/config.yaml.
+    # extra_hosts:
+    #   # Lets the router reach Docker Model Runner on the host
+    #   - "host.docker.internal:host-gateway"
     restart: unless-stopped

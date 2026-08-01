@@ -30,8 +30,10 @@ agentContext: |
   A LiteLLM proxy runs on the host and is reachable from this sandbox at
   `http://host.docker.internal:4000/v1` (exposed via `OPENAI_BASE_URL`).
   It is OpenAI-compatible and exposes these model names: `gpt-4o`,
-  `claude`, `gemini`, `local-gemma`. Authenticate with the key in
-  `$LITELLM_MASTER_KEY`.
+  `claude`, `gemini` (and `local-gemma` only if the optional Docker Model
+  Runner fallback was enabled on the host). Authenticate with the key in
+  `$LITELLM_MASTER_KEY`. Call `GET /v1/models` to see what is actually
+  available.
 
   You do NOT start or manage the gateway from inside the sandbox — it runs
   on the host. Real provider credentials live only on the host router; the

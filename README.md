@@ -2,7 +2,7 @@
 
 A standalone [Docker Sandboxes](https://docs.docker.com/ai/sandboxes/) kit (`kind: mixin`) that points a sandbox agent at a [LiteLLM](https://github.com/BerriAI/litellm) proxy running **on the host**, reachable at `host.docker.internal:4000`. The agent gets a single OpenAI-compatible endpoint with:
 
--> Multi-provider routing (OpenAI, Anthropic, Gemini) with fallback to a local Docker Model Runner model
+-> Multi-provider routing (OpenAI, Anthropic, Gemini), with an optional fallback to a local Docker Model Runner model
 
 -> A shared gateway: one router on the host serves every sandbox, instead of installing and running a copy inside each microVM
 
@@ -25,7 +25,7 @@ The kit itself only sets `OPENAI_BASE_URL` to the host router and allows `host.d
 
 ### 1. Start the LiteLLM router on the host
 
-The repo ships a host config (`litellm/config.yaml`) and a compose file. Provider keys live only on the host — put them in a gitignored `.env` file that Compose loads automatically (keeps them out of your shell history):
+The repo ships a host config (`litellm/config.yaml`) and a compose file. Provider keys live only on the host, so put them in a gitignored `.env` file that Compose loads automatically (keeps them out of your shell history):
 
 ```
 cp .env.example .env      # then edit .env, filling in the providers you use
@@ -34,23 +34,25 @@ docker compose up -d
 
 This publishes the router on `localhost:4000` (i.e. `host.docker.internal:4000` from a sandbox). Edit `litellm/config.yaml` to add models, change fallbacks, or tune settings.
 
-The image defaults to the public `ghcr.io/berriai/litellm` image. To run the [LiteLLM Docker Hardened Image](https://hub.docker.com/hardened-images/catalog/dhi/litellm) (DHI) instead — minimal, nonroot (UID 65532), CVE-scanned — mirror it into your org (requires a DHI Enterprise subscription) and set the reference in `.env`:
+The router runs the [LiteLLM Docker Hardened Image](https://hub.docker.com/hardened-images/catalog/dhi/litellm) (`dhi.io/litellm:1`) by default: minimal, nonroot (UID 65532), and CVE-scanned. Pin a tag or use a different image by setting `LITELLM_IMAGE` in `.env`:
 
 ```
-LITELLM_IMAGE=your-org/litellm:1        # or a pinned tag like 1.94.0-debian13
+LITELLM_IMAGE=dhi.io/litellm:1.94.0-debian13
 ```
 
 The shipped `litellm/config.yaml` is world-readable, so the nonroot stable DHI tag can read it; no other changes are needed.
 
-> The sandbox never receives these provider keys — it only holds the virtual `LITELLM_MASTER_KEY`. `sbx secret` is not used here: it injects credentials at a sandbox's egress proxy and never exposes values to a host process, so it can't supply a host-run router. In this design the host owns the provider keys and the sandbox holds only the virtual key.
+> The sandbox never receives these provider keys; it only holds the virtual `LITELLM_MASTER_KEY`. `sbx secret` is not used here: it injects credentials at a sandbox's egress proxy and never exposes values to a host process, so it can't supply a host-run router. In this design the host owns the provider keys and the sandbox holds only the virtual key.
 
-### 2. (Optional) Enable Docker Model Runner for the local fallback
+### 2. (Optional) Enable the Docker Model Runner fallback
+
+DMR is off by default. Enable it only if you want a local fallback:
 
 ```
 docker model pull ai/gemma3
 ```
 
-The host router reaches DMR over `host.docker.internal:12434`.
+Then uncomment the `local-gemma` model and `router_settings` fallback in `litellm/config.yaml`, and the `extra_hosts` entry in `docker-compose.yml`, and restart (`docker compose up -d`). The host router reaches DMR over `host.docker.internal:12434`.
 
 ## Launch
 
@@ -67,7 +69,7 @@ Or over git:
 sbx run --kit "git+https://github.com/ajeetraina/sbx-kits-litellm.git" claude
 ```
 
-Or from the published kit on Docker Hub (note the explicit `:latest` tag — an
+Or from the published kit on Docker Hub (note the explicit `:latest` tag, since an
 untagged OCI reference is rejected as an invalid reference):
 
 ```
@@ -94,18 +96,18 @@ The gateway runs on the host, so nothing needs starting inside the sandbox. Chec
 !curl -s http://host.docker.internal:4000/v1/models -H "Authorization: Bearer $LITELLM_MASTER_KEY" | head
 ```
 
-(`$OPENAI_BASE_URL` already points here, so OpenAI-compatible SDKs work with no extra config.) For a liveness check use `GET /health/liveliness` (returns `I'm alive!`) or `/v1/models` — **not** plain `GET /health`, which returns a benign 500 without a database (see Troubleshooting).
+(`$OPENAI_BASE_URL` already points here, so OpenAI-compatible SDKs work with no extra config.) For a liveness check use `GET /health/liveliness` (returns `I'm alive!`) or `/v1/models`, **not** plain `GET /health`, which returns a benign 500 without a database (see Troubleshooting).
 
-Route a completion through the local model (no cloud keys needed):
+Route a completion through a cloud model:
 
 ```
 !curl -s http://host.docker.internal:4000/v1/chat/completions \
   -H "Authorization: Bearer $LITELLM_MASTER_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"model": "local-gemma", "messages": [{"role": "user", "content": "hello"}]}'
+  -d '{"model": "gpt-4o", "messages": [{"role": "user", "content": "hello"}]}'
 ```
 
-Then the same request with `"model": "gpt-4o"` to confirm the host router's cloud path.
+If you enabled the optional DMR fallback (see Prerequisites), swap `"model": "gpt-4o"` for `"local-gemma"` to route to the local model with no cloud keys.
 
 ## Why the router runs on the host
 
