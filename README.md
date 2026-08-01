@@ -25,16 +25,16 @@ The kit itself only sets `OPENAI_BASE_URL` to the host router and allows `host.d
 
 ### 1. Start the LiteLLM router on the host
 
-The repo ships a host config (`litellm/config.yaml`) and a compose file:
+The repo ships a host config (`litellm/config.yaml`) and a compose file. Provider keys live only on the host — put them in a gitignored `.env` file that Compose loads automatically (keeps them out of your shell history):
 
 ```
-export OPENAI_API_KEY=...     # any providers you want to route
-export ANTHROPIC_API_KEY=...
-export GEMINI_API_KEY=...
+cp .env.example .env      # then edit .env, filling in the providers you use
 docker compose up -d
 ```
 
 This publishes the router on `localhost:4000` (i.e. `host.docker.internal:4000` from a sandbox). Edit `litellm/config.yaml` to add models, change fallbacks, or tune settings.
+
+> The sandbox never receives these provider keys — it only holds the virtual `LITELLM_MASTER_KEY`. `sbx secret` is not used here: it injects credentials at a sandbox's egress proxy and never exposes values to a host process, so it can't supply a host-run router. In this design the host owns the provider keys and the sandbox holds only the virtual key.
 
 ### 2. (Optional) Enable Docker Model Runner for the local fallback
 
