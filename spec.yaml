@@ -1,120 +1,44 @@
 schemaVersion: "2"
 kind: mixin
 name: litellm
-displayName: LiteLLM Gateway (in-sandbox)
-description: "Runs a LiteLLM proxy inside the sandbox on localhost:4000, giving the agent one OpenAI-compatible endpoint with routing, fallbacks, and spend tracking across OpenAI, Anthropic, Gemini, and local Docker Model Runner. Upstream cloud credentials are injected by the sbx credential proxy at egress, so no real API keys ever exist inside the sandbox."
+displayName: LiteLLM Gateway (host router)
+description: "Points the sandbox agent at a LiteLLM proxy running on the host at host.docker.internal:4000, giving the agent one OpenAI-compatible endpoint with routing, fallbacks, and spend tracking across OpenAI, Anthropic, Gemini, and local Docker Model Runner. The router runs on the host (like Docker Model Runner); the sandbox reaches it over host.docker.internal via an explicit network allow, and holds only a virtual key — real provider credentials never enter the sandbox."
 
 caps:
   network:
+    # The router runs on the HOST. The sandbox only needs to reach it over
+    # host.docker.internal:4000 (same pattern as Docker Model Runner). All
+    # upstream cloud/DMR calls are made by the host router, so no provider
+    # hostnames are allowed inside the sandbox.
     allow:
-      - pypi.org
-      - files.pythonhosted.org
-      - api.openai.com
-      - api.anthropic.com
-      - generativelanguage.googleapis.com
-      # Docker Model Runner (local fallback). The config talks to
-      # host.docker.internal:12434; localhost inside the microVM is the
-      # sandbox itself, so the in-sandbox gateway on :4000 needs no entry.
-      - host.docker.internal:12434
+      - host.docker.internal:4000
 
 environment:
   variables:
-    # Point OpenAI-compatible tooling inside the sandbox at LiteLLM
-    OPENAI_BASE_URL: "http://localhost:4000/v1"
+    # Point OpenAI-compatible tooling inside the sandbox at the host router
+    OPENAI_BASE_URL: "http://host.docker.internal:4000/v1"
+    # Virtual key handed to the agent; maps to the router's master key.
+    # Not a provider secret — real keys live only on the host router.
     OPENAI_API_KEY: "sk-sandbox-litellm"
-    # Local-only virtual key for the in-sandbox gateway (not a secret)
     LITELLM_MASTER_KEY: "sk-sandbox-litellm"
     NO_PROXY: "localhost,127.0.0.1,host.docker.internal"
     no_proxy: "localhost,127.0.0.1,host.docker.internal"
 
-commands:
-  install:
-    # The base image ships Python 3.14, for which several LiteLLM proxy
-    # deps (orjson, uvloop, ...) have no prebuilt wheels yet and would try
-    # to build from source (needs Rust/C toolchains + extra egress, which
-    # fails behind the sandbox network policy). Install under a pinned
-    # Python 3.12 via uv so every dependency resolves to a prebuilt wheel.
-    - command: "uv venv --python 3.12 /home/agent/.litellm/venv"
-      user: "1000"
-      description: "Create a Python 3.12 venv for LiteLLM (base image Python 3.14 lacks wheels for some deps)"
-    - command: "uv pip install --python /home/agent/.litellm/venv 'litellm[proxy]'"
-      user: "1000"
-      description: "Install LiteLLM with proxy extras into the venv using prebuilt wheels"
-  initFiles:
-    - path: /home/agent/.litellm/config.yaml
-      mode: "0644"
-      onlyIfMissing: true
-      description: "LiteLLM proxy config. Cloud api_key values are placeholders; the sbx credential proxy injects real credentials at egress for known provider hostnames."
-      content: |
-        model_list:
-          - model_name: gpt-4o
-            litellm_params:
-              model: openai/gpt-4o
-              # Explicit api_base is REQUIRED: the kit sets OPENAI_BASE_URL to
-              # this gateway for in-sandbox tooling, and LiteLLM's own OpenAI
-              # client would otherwise inherit it and loop back to localhost:4000.
-              api_base: "https://api.openai.com/v1"
-              api_key: "proxy-managed"
-          - model_name: claude
-            litellm_params:
-              model: anthropic/claude-sonnet-4-6
-              api_key: "proxy-managed"
-          - model_name: gemini
-            litellm_params:
-              model: gemini/gemini-2.5-flash
-              api_key: "proxy-managed"
-          # Local Docker Model Runner variant, zero cloud dependency
-          - model_name: local-gemma
-            litellm_params:
-              model: openai/ai/gemma3
-              api_base: "http://host.docker.internal:12434/engines/v1"
-              api_key: "dmr"
-
-        litellm_settings:
-          drop_params: true
-          num_retries: 2
-
-        router_settings:
-          # Fall back to local model if cloud is unreachable/policy-blocked
-          fallbacks:
-            - gpt-4o: ["local-gemma"]
-
-        general_settings:
-          master_key: os.environ/LITELLM_MASTER_KEY
-          # No database runs in the sandbox; disable DB-backed logging so
-          # LiteLLM does not crash trying to persist spend/error logs
-          # (litellm[proxy] has no prisma installed here).
-          disable_spend_logs: true
-          disable_error_logs: true
-
-    - path: /home/agent/.litellm/start.sh
-      mode: "0755"
-      onlyIfMissing: true
-      description: "Launcher for the in-sandbox LiteLLM proxy"
-      content: |
-        #!/bin/bash
-        mkdir -p ~/.litellm
-        nohup ~/.litellm/venv/bin/litellm \
-          --config ~/.litellm/config.yaml \
-          --host 127.0.0.1 \
-          --port 4000 \
-          --telemetry False \
-          > ~/.litellm/litellm.log 2>&1 &
-        echo "LiteLLM starting on http://localhost:4000 (log: ~/.litellm/litellm.log)"
-
 agentContext: |
-  ## LiteLLM gateway
+  ## LiteLLM gateway (host router)
 
-  A LiteLLM proxy is available inside this sandbox. Start it (if not
-  already running) with `~/.litellm/start.sh`. It exposes an
-  OpenAI-compatible endpoint at `http://localhost:4000/v1` with these
-  model names: `gpt-4o`, `claude`, `gemini`, `local-gemma`.
-  Authenticate with the key in `$LITELLM_MASTER_KEY`. Cloud provider
-  credentials are injected by the sandbox credential proxy at egress;
-  never ask for or handle real API keys. Config lives at
-  `~/.litellm/config.yaml` and routing/fallbacks can be edited there.
+  A LiteLLM proxy runs on the host and is reachable from this sandbox at
+  `http://host.docker.internal:4000/v1` (exposed via `OPENAI_BASE_URL`).
+  It is OpenAI-compatible and exposes these model names: `gpt-4o`,
+  `claude`, `gemini`, `local-gemma`. Authenticate with the key in
+  `$LITELLM_MASTER_KEY`.
+
+  You do NOT start or manage the gateway from inside the sandbox — it runs
+  on the host. Real provider credentials live only on the host router; the
+  key inside the sandbox is a virtual key. Never ask for or handle real
+  API keys.
 
   To check the gateway is up, use `GET /health/liveliness` (returns
-  `I'm alive!`) or `GET /v1/models`. Do NOT use `GET /health` — it runs
-  DB-backed active checks and returns a benign 500 here (there is no
-  database in the sandbox); that does not mean the proxy is unhealthy.
+  `I'm alive!`) or `GET /v1/models`. If it is unreachable, the host router
+  is not running — that is a host-side concern, not something to fix from
+  inside the sandbox.

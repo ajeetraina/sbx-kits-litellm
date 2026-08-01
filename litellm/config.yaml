@@ -1,0 +1,40 @@
+# LiteLLM router config — runs on the HOST, not inside the sandbox.
+# Sandboxes reach this proxy at host.docker.internal:4000 (see spec.yaml).
+# Provider credentials are read from the host environment and never leave
+# the host; the sandbox only ever sees the virtual master key.
+model_list:
+  - model_name: gpt-4o
+    litellm_params:
+      model: openai/gpt-4o
+      api_key: os.environ/OPENAI_API_KEY
+  - model_name: claude
+    litellm_params:
+      model: anthropic/claude-sonnet-4-6
+      api_key: os.environ/ANTHROPIC_API_KEY
+  - model_name: gemini
+    litellm_params:
+      model: gemini/gemini-2.5-flash
+      api_key: os.environ/GEMINI_API_KEY
+  # Local Docker Model Runner variant, zero cloud dependency. The router
+  # runs on the host, so it reaches DMR over host.docker.internal:12434.
+  - model_name: local-gemma
+    litellm_params:
+      model: openai/ai/gemma3
+      api_base: "http://host.docker.internal:12434/engines/v1"
+      api_key: "dmr"
+
+litellm_settings:
+  drop_params: true
+  num_retries: 2
+
+router_settings:
+  # Fall back to the local model if a cloud provider is unreachable
+  fallbacks:
+    - gpt-4o: ["local-gemma"]
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+  # No database is provisioned by this compose file; disable DB-backed
+  # logging so LiteLLM does not crash trying to persist spend/error logs.
+  disable_spend_logs: true
+  disable_error_logs: true
