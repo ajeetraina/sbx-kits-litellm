@@ -34,6 +34,14 @@ docker compose up -d
 
 This publishes the router on `localhost:4000` (i.e. `host.docker.internal:4000` from a sandbox). Edit `litellm/config.yaml` to add models, change fallbacks, or tune settings.
 
+The image defaults to the public `ghcr.io/berriai/litellm` image. To run the [LiteLLM Docker Hardened Image](https://hub.docker.com/hardened-images/catalog/dhi/litellm) (DHI) instead — minimal, nonroot (UID 65532), CVE-scanned — mirror it into your org (requires a DHI Enterprise subscription) and set the reference in `.env`:
+
+```
+LITELLM_IMAGE=your-org/litellm:1        # or a pinned tag like 1.94.0-debian13
+```
+
+The shipped `litellm/config.yaml` is world-readable, so the nonroot stable DHI tag can read it; no other changes are needed.
+
 > The sandbox never receives these provider keys — it only holds the virtual `LITELLM_MASTER_KEY`. `sbx secret` is not used here: it injects credentials at a sandbox's egress proxy and never exposes values to a host process, so it can't supply a host-run router. In this design the host owns the provider keys and the sandbox holds only the virtual key.
 
 ### 2. (Optional) Enable Docker Model Runner for the local fallback
