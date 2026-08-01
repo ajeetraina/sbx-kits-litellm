@@ -1,0 +1,2 @@
+# Host router provider credentials — never commit real keys
+.env
